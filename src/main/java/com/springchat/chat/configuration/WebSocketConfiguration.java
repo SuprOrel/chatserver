@@ -43,7 +43,7 @@ public class WebSocketConfiguration extends AbstractWebSocketMessageBrokerConfig
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
-        config.enableSimpleBroker("/topic/", "/queue/");
+        config.enableSimpleBroker("/topic/", "/queue/", "/global");
         config.setApplicationDestinationPrefixes("/app");
     }
 }
