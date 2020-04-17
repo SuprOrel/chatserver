@@ -1,6 +1,6 @@
 package com.springchat.chat.controllers;
 
-import com.springchat.chat.util.ChatUser;
+//import com.springchat.chat.util.ChatUser;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.handler.annotation.MessageExceptionHandler;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -11,10 +11,7 @@ import org.springframework.stereotype.Controller;
 
 import java.security.Principal;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Controller
 public class WebSocketController {
@@ -24,18 +21,37 @@ public class WebSocketController {
         this.template = template;
     }
 
+    public List<String> usernames = new ArrayList<>();
+
     @MessageMapping("/login")
     @SendToUser("/queue/reply")
     public String processMessageFromClient(
             @Payload String message,
             Principal principal) throws Exception {
-        if(ChatUser.isUsernameAvailable(message)) {
-            ChatUser.addChatUser(principal, message);
-            return message;
-        }
-        else{
+        if(usernames.contains(message)) {
             return "Occupied";
         }
+        else{
+            if(message.startsWith("disconnect ")) {
+                String username = message.substring(11);
+                usernames.remove(username);
+                this.template.convertAndSend("/global", new SimpleDateFormat("HH:mm:ss").format(new Date())+ "- disconnected " + username);
+                return "disconnected";
+            }
+            else {
+                usernames.add(message);
+                this.template.convertAndSend("/global", new SimpleDateFormat("HH:mm:ss").format(new Date())+ "- connected " + message);
+                return usernamesToString();
+            }
+        }
+    }
+
+    public String usernamesToString() {
+        StringBuilder builder = new StringBuilder();
+        for(int i = 0; i < usernames.size(); i++) {
+            builder.append(usernames.get(i) + ',');
+        }
+        return builder.toString();
     }
 
     @MessageExceptionHandler
