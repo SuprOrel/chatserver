@@ -9,6 +9,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.annotation.SendToUser;
 import org.springframework.stereotype.Controller;
 
+import java.nio.charset.Charset;
 import java.security.Principal;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -25,25 +26,40 @@ public class WebSocketController {
 
     @MessageMapping("/login")
     @SendToUser("/queue/reply")
-    public String processMessageFromClient(
+    public String processLoginFromClient(
             @Payload String message,
             Principal principal) throws Exception {
-        if(usernames.contains(message)) {
-            return "Occupied";
+        if(message.startsWith("log out ")) {
+            String username = message.substring(8);
+            usernames.remove(username);
+            this.template.convertAndSend("/global", new SimpleDateFormat("HH:mm:ss").format(new Date())+ "- logged out " + username);
+            return "logged out";
         }
-        else{
-            if(message.startsWith("disconnect ")) {
-                String username = message.substring(11);
-                usernames.remove(username);
-                this.template.convertAndSend("/global", new SimpleDateFormat("HH:mm:ss").format(new Date())+ "- disconnected " + username);
-                return "disconnected";
-            }
-            else {
-                usernames.add(message);
-                this.template.convertAndSend("/global", new SimpleDateFormat("HH:mm:ss").format(new Date())+ "- connected " + message);
-                return usernamesToString();
+        else {
+            if(usernames.contains(message)) return "Login failed: Username occupied";
+            if(message.length() > 10) return "Login failed: Username too long";
+            if(!Charset.forName("US-ASCII").newEncoder().canEncode(message)) return "Login failed: Username must be in english";
+            if(!message.matches(".*[a-zA-Z]+.*")) return "Login failed: Username must contain letters";
+            usernames.add(message);
+            this.template.convertAndSend("/global", new SimpleDateFormat("HH:mm:ss").format(new Date())+ "- logged in " + message);
+            return "logged in";
+        }
+    }
+
+    boolean containsNonEnglish(String value) {
+        for (char c : value.toCharArray()) {
+            if (!(c >= 'a' && c <= 'z') && !(c >= 'A' && c <= 'Z')) {
+                return false;
             }
         }
+        return true;
+    }
+
+    @MessageMapping("/userlist")
+    @SendToUser("/queue/reply")
+    public String returnUserlist(
+            @Payload String message ) throws Exception {
+        return usernamesToString();
     }
 
     public String usernamesToString() {
