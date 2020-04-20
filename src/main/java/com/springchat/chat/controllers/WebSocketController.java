@@ -32,16 +32,16 @@ public class WebSocketController {
         if(message.startsWith("log out ")) {
             String username = message.substring(8);
             usernames.remove(username);
-            this.template.convertAndSend("/global", new SimpleDateFormat("HH:mm:ss").format(new Date())+ "- logged out " + username);
+            this.template.convertAndSend("/global", new SimpleDateFormat("HH:mm:ss").format(new Date())+ "- Server:logged out " + username);
             return "logged out";
         }
         else {
-            if(usernames.contains(message)) return "Login failed: Username occupied";
+            if(usernames.contains(message) || message.equals("Server")) return "Login failed: Username occupied";
             if(message.length() > 10) return "Login failed: Username too long";
             if(!Charset.forName("US-ASCII").newEncoder().canEncode(message)) return "Login failed: Username must be in english";
             if(!message.matches(".*[a-zA-Z]+.*")) return "Login failed: Username must contain letters";
             usernames.add(message);
-            this.template.convertAndSend("/global", new SimpleDateFormat("HH:mm:ss").format(new Date())+ "- logged in " + message);
+            this.template.convertAndSend("/global", new SimpleDateFormat("HH:mm:ss").format(new Date())+ "- Server:logged in " + message);
             return "logged in";
         }
     }
