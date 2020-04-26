@@ -1,6 +1,8 @@
 package com.springchat.chat.controllers;
 
 //import com.springchat.chat.util.ChatUser;
+import com.springchat.chat.User;
+import com.springchat.chat.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.handler.annotation.MessageExceptionHandler;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -22,26 +24,37 @@ public class WebSocketController {
         this.template = template;
     }
 
-    public List<String> usernames = new ArrayList<>();
+    @Autowired
+    UserRepository users;
 
     @MessageMapping("/login")
     @SendToUser("/queue/reply")
     public String processLoginFromClient(
             @Payload String message,
             Principal principal) throws Exception {
-        if(message.startsWith("log out ")) {
-            String username = message.substring(8);
-            usernames.remove(username);
-            this.template.convertAndSend("/global", new SimpleDateFormat("HH:mm:ss").format(new Date())+ "- Server:logged out " + username);
-            return "logged out";
+        if(message.startsWith("delete ")) {
+            String username = message.substring(7);
+//            UserRepository.remove(username);
+            removeUser(username);
+            this.template.convertAndSend("/global", new SimpleDateFormat("HH:mm:ss").format(new Date())+ "- Server:deleted " + username);
+            return "deleted";
         }
         else {
-            if(usernames.contains(message) || message.equals("Server")) return "Login failed: Username occupied";
-            if(message.length() > 10) return "Login failed: Username too long";
-            if(!Charset.forName("US-ASCII").newEncoder().canEncode(message)) return "Login failed: Username must be in english";
-            if(!message.matches(".*[a-zA-Z]+.*")) return "Login failed: Username must contain letters";
-            usernames.add(message);
-            this.template.convertAndSend("/global", new SimpleDateFormat("HH:mm:ss").format(new Date())+ "- Server:logged in " + message);
+            String[] info = message.split(",");
+            if(info[0].equals("Server")) return "Login failed: Illegal username";
+            User user = getUser(info[0]);
+            if(user == null) {
+                if (info[0].length() > 10) return "Login failed: Username too long";
+                if (!Charset.forName("US-ASCII").newEncoder().canEncode(message))
+                    return "Login failed: English only";
+                if (!info[0].matches(".*[a-zA-Z]+.*")) return "Login failed: Username must contain letters";
+                if (!info[1].matches(".*[a-zA-Z]+.*")) return "Login failed: Password must contain letters";
+                addUser(info[0], info[1]);
+                this.template.convertAndSend("/global", new SimpleDateFormat("HH:mm:ss").format(new Date()) + "- Server:logged in " + info[0]);
+            }
+            else {
+                if(!user.getPassword().equals(info[1])) return "Login failed: Incorrect password";
+            }
             return "logged in";
         }
     }
@@ -62,14 +75,6 @@ public class WebSocketController {
         return usernamesToString();
     }
 
-    public String usernamesToString() {
-        StringBuilder builder = new StringBuilder();
-        for(int i = 0; i < usernames.size(); i++) {
-            builder.append(usernames.get(i) + ',');
-        }
-        return builder.toString();
-    }
-
     @MessageExceptionHandler
     @SendToUser("/queue/errors")
     public String handleException(Throwable exception) {
@@ -79,5 +84,44 @@ public class WebSocketController {
     @MessageMapping("/message")
     public void onReceivedMessage(String message){
         this.template.convertAndSend("/global", new SimpleDateFormat("HH:mm:ss").format(new Date())+ "- " + message);
+    }
+
+    public String usernamesToString() {
+        StringBuilder builder = new StringBuilder();
+        for(User user : users.findAll()) {
+            builder.append(user.getName() + ',');
+        }
+        return builder.toString();
+    }
+
+    public User getUser(String username) {
+        for(User user : users.findAll()) {
+            if(user.getName().equals(username)) return user;
+        }
+        return null;
+    }
+//    public int getUserId(String username) {
+//        for(User user : users.findAll()) {
+//            if(user.getName().equals(username)) return user.getId();
+//        }
+//        return -1;
+//    }
+
+    public boolean isUsernameOccupied(String username) {
+        return getUser(username) != null;
+    }
+
+    public void removeUser(String username) {
+        removeUser(getUser(username));
+    }
+    public void removeUser(User user) {
+        users.delete(user);
+    }
+
+    public void addUser(String username, String password) {
+        User user = new User();
+        user.setName(username);
+        user.setPassword(password);
+        users.save(user);
     }
 }
