@@ -1,8 +1,9 @@
 package com.springchat.chat.controllers;
 
 //import com.springchat.chat.util.ChatUser;
-import com.springchat.chat.User;
-import com.springchat.chat.UserRepository;
+import com.springchat.chat.models.User;
+import com.springchat.chat.services.UserService;
+import com.springchat.chat.services.UserServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.handler.annotation.MessageExceptionHandler;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -10,11 +11,9 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.annotation.SendToUser;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.RequestParam;
 
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetEncoder;
-import java.security.Principal;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -27,7 +26,7 @@ public class WebSocketController {
     }
 
     @Autowired
-    UserRepository users;
+    UserService userService;
 
     @MessageMapping("/login")
     @SendToUser("/queue/reply")
@@ -35,7 +34,7 @@ public class WebSocketController {
             String message) throws Exception {
         String[] split = message.split(",");
         String mail = split[0], password = split[1];
-        User user = getUserFromMail(mail);
+        User user = userService.getUserFromMail(mail);
         if(user == null) return "Login failed: User not found";
         if(!user.getPassword().equals(password)) return "Login failed: Incorrect password";
         return "Logged in: " + user.getName();
@@ -78,9 +77,9 @@ public class WebSocketController {
         CharsetEncoder encoder = Charset.forName("US-ASCII").newEncoder();
         if(!encoder.canEncode(username)) return "Register failed: Username must be in english";
         if(!encoder.canEncode(password)) return "Register failed: Password must be in english";
-        if(isUsernameOccupied(username)) return "Register failed: Username occupied";
-        if(isMailOccupied(mail)) return "Register failed: Mail occupied";
-        addUser(username, password, mail);
+        if(userService.isUsernameOccupied(username)) return "Register failed: Username occupied";
+        if(userService.isMailOccupied(mail)) return "Register failed: Mail occupied";
+        userService.addUser(username, password, mail);
         this.template.convertAndSend("/global", new SimpleDateFormat("HH:mm:ss").format(new Date()) + "- Server:registerd " + username);
         System.out.println("registerd " + username + " " + password + " " + mail);
         return "Logged in: " + username;
@@ -99,7 +98,7 @@ public class WebSocketController {
     @SendToUser("/queue/reply")
     public String returnUserlist(
             @Payload String message ) throws Exception {
-        return usernamesToString();
+        return userService.usernamesToString();
     }
 
     @MessageExceptionHandler
@@ -113,53 +112,12 @@ public class WebSocketController {
         this.template.convertAndSend("/global", new SimpleDateFormat("HH:mm:ss").format(new Date())+ "- " + message);
     }
 
-    public String usernamesToString() {
-        StringBuilder builder = new StringBuilder();
-        for(User user : users.findAll()) {
-            builder.append(user.getName() + ',');
-        }
-        return builder.toString();
-    }
-
-    public User getUser(String username) {
-        for(User user : users.findAll()) {
-            if(user.getName().equals(username)) return user;
-        }
-        return null;
-    }
-    public User getUserFromMail(String mail) {
-        for(User user : users.findAll()) {
-            if(user.getEmail().equals(mail)) return user;
-        }
-        return null;
-    }
-//    public int getUserId(String username) {
-//        for(User user : users.findAll()) {
-//            if(user.getName().equals(username)) return user.getId();
-//        }
-//        return -1;
-//    }
-
-    public boolean isUsernameOccupied(String username) {
-        return getUser(username) != null;
-    }
-
-    public boolean isMailOccupied(String mail) {
-        return getUserFromMail(mail) != null;
-    }
-
-    public void removeUser(String username) {
-        removeUser(getUser(username));
-    }
-    public void removeUser(User user) {
-        users.delete(user);
-    }
-
-    public void addUser(String username, String password, String mail) {
-        User user = new User();
-        user.setName(username);
-        user.setPassword(password);
-        user.setEmail(mail);
-        users.save(user);
+    @MessageMapping("/command")
+    public void onReceivedCommand(String message){
+      if(message.startsWith("delete ")) {
+            String username = message.substring(7);
+            userService.removeUser(username);
+            this.template.convertAndSend("/global", new SimpleDateFormat("HH:mm:ss").format(new Date())+ "- Server:deleted " + username);
+      }
     }
 }

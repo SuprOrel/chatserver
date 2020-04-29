@@ -1,4 +1,4 @@
-package com.springchat.chat;
+package com.springchat.chat.models;
 
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;

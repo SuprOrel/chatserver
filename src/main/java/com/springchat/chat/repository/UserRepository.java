@@ -1,16 +1,9 @@
-package com.springchat.chat;
+package com.springchat.chat.repository;
 
 
 
-import com.springchat.chat.User;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.springchat.chat.models.User;
 import org.springframework.data.repository.CrudRepository;
-import org.springframework.stereotype.Service;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.function.Consumer;
 
 // This will be AUTO IMPLEMENTED by Spring into a Bean called userRepository
 // CRUD refers Create, Read, Update, Delete
