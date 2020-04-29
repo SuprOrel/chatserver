@@ -4,6 +4,7 @@ import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.criteria.CriteriaBuilder;
 
 @Entity // This tells Hibernate to make a table out of this class
 public class User {
@@ -16,6 +17,8 @@ public class User {
     private String email;
 
     private String password;
+
+    private Integer messageCount;
 
     public Integer getId() {
         return id;
@@ -44,4 +47,8 @@ public class User {
     public String getPassword() { return password; }
 
     public void setPassword(String password) { this.password = password; }
+
+    public Integer getMessageCount() { return messageCount; }
+
+    public void setMessageCount(Integer messageCount) { this.messageCount = messageCount; }
 }

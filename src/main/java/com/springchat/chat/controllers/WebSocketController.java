@@ -16,6 +16,7 @@ import java.nio.charset.Charset;
 import java.nio.charset.CharsetEncoder;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.regex.Pattern;
 
 @Controller
 public class WebSocketController {
@@ -37,7 +38,7 @@ public class WebSocketController {
         User user = userService.getUserFromMail(mail);
         if(user == null) return "Login failed: User not found";
         if(!user.getPassword().equals(password)) return "Login failed: Incorrect password";
-        return "Logged in: " + user.getName();
+        return "Logged in: " + user.getName() + "," + user.getMessageCount();
 //        if(message.startsWith("delete ")) {
 //            String username = message.substring(7);
 ////            UserRepository.remove(username);
@@ -74,6 +75,7 @@ public class WebSocketController {
         if (username.length() > 10) return "Register failed: Username longer then 10 letters";
         if (!username.matches(".*[a-zA-Z]+.*")) return "Register failed: Username must contain letters";
         if (!password.matches(".*[a-zA-Z]+.*")) return "Register failed: Password must contain letters";
+        if (!isValidEmail(mail)) return "Register failed: Email address invalid";
         CharsetEncoder encoder = Charset.forName("US-ASCII").newEncoder();
         if(!encoder.canEncode(username)) return "Register failed: Username must be in english";
         if(!encoder.canEncode(password)) return "Register failed: Password must be in english";
@@ -85,14 +87,19 @@ public class WebSocketController {
         return "Logged in: " + username;
     }
 
-    boolean containsNonEnglish(String value) {
-        for (char c : value.toCharArray()) {
-            if (!(c >= 'a' && c <= 'z') && !(c >= 'A' && c <= 'Z')) {
-                return false;
-            }
-        }
-        return true;
+    public static boolean isValidEmail(String email)
+    {
+        String emailRegex = "^[a-zA-Z0-9_+&*-]+(?:\\."+
+                "[a-zA-Z0-9_+&*-]+)*@" +
+                "(?:[a-zA-Z0-9-]+\\.)+[a-z" +
+                "A-Z]{2,7}$";
+
+        Pattern pat = Pattern.compile(emailRegex);
+        if (email == null)
+            return false;
+        return pat.matcher(email).matches();
     }
+
 
     @MessageMapping("/userlist")
     @SendToUser("/queue/reply")
@@ -109,15 +116,25 @@ public class WebSocketController {
 
     @MessageMapping("/message")
     public void onReceivedMessage(String message){
+        User user = userService.getUser(message.substring(0, message.indexOf(':')));
+        user.setMessageCount(user.getMessageCount() + 1);
+        userService.update(user);
         this.template.convertAndSend("/global", new SimpleDateFormat("HH:mm:ss").format(new Date())+ "- " + message);
     }
 
     @MessageMapping("/command")
     public void onReceivedCommand(String message){
-      if(message.startsWith("delete ")) {
+        if(message.startsWith("delete ")) {
             String username = message.substring(7);
             userService.removeUser(username);
             this.template.convertAndSend("/global", new SimpleDateFormat("HH:mm:ss").format(new Date())+ "- Server:deleted " + username);
-      }
+        }
+        else if(message.startsWith("messages ")) {
+            String[] values = message.substring(9).split(" ");
+            User user = userService.getUser(values[0]);
+            user.setMessageCount(Integer.parseInt(values[1]));
+            userService.update(user);
+            System.out.println("set " + values[0] + "'s message count to " + values[1]);
+        }
     }
 }

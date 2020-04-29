@@ -57,6 +57,12 @@ public class UserServiceImpl implements UserService {
         user.setName(username);
         user.setPassword(password);
         user.setEmail(mail);
+        user.setMessageCount(0);
+        repository.save(user);
+    }
+
+    @Override
+    public void update(User user) {
         repository.save(user);
     }
 }
