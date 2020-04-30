@@ -91,7 +91,7 @@ public class WebSocketController {
         userService.addUser(username, password, mail);
         this.template.convertAndSend("/global", new SimpleDateFormat("HH:mm:ss").format(new Date()) + "- Server:registerd " + username);
         System.out.println("registerd " + username + " " + password + " " + mail);
-        return "Logged in: " + username;
+        return "Logged in: " + username + "," + 0;
     }
 
     public static boolean isValidEmail(String email)
@@ -107,6 +107,29 @@ public class WebSocketController {
         return pat.matcher(email).matches();
     }
 
+    @MessageMapping("/edit")
+    @SendToUser("/queue/reply")
+    public String editUser(String message) {
+        String[] split = message.split(",");
+        String mail = split[0], password = split[1], newpassword = split[2], newusername = split[3];
+        User user = userService.getUserFromMail(mail);
+        if(!user.getPassword().equals(password)) return "Edit failed: Incorrect password";
+        if (newusername.length() > 10) return "Edit failed: Username longer then 10 letters";
+        CharsetEncoder encoder = Charset.forName("US-ASCII").newEncoder();
+        if(!encoder.canEncode(newusername)) return "Edit failed: Username must be in english";
+        if(!encoder.canEncode(newpassword)) return "Edit failed: Password must be in english";
+        if (!newusername.matches(".*[a-zA-Z]+.*")) return "Edit failed: Username must contain letters";
+        if (!newpassword.matches(".*[a-zA-Z]+.*")) return "Edit failed: Password must contain letters";
+        if(!user.getName().equals(newusername)) {
+            if(userService.isUsernameOccupied(newusername)) return "Edit failed: Username occupied";
+            this.template.convertAndSend("/global", new SimpleDateFormat("HH:mm:ss").format(new Date()) + "- Server:edited " + user.getName() + " to " + newusername);
+            user.setName(newusername);
+        }
+        user.setPassword(newpassword);
+        userService.update(user);
+
+        return "Logged in: " + newusername + "," + user.getMessageCount();
+    }
 
     @MessageMapping("/userlist")
     @SendToUser("/queue/reply")
