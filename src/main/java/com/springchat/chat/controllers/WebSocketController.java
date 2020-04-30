@@ -12,6 +12,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.annotation.SendToUser;
 import org.springframework.stereotype.Controller;
 
+import javax.annotation.PostConstruct;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetEncoder;
 import java.text.SimpleDateFormat;
@@ -20,14 +21,20 @@ import java.util.regex.Pattern;
 
 @Controller
 public class WebSocketController {
+    @Autowired
+    UserService userService;
+
     private final SimpMessagingTemplate template;
     @Autowired
     WebSocketController(SimpMessagingTemplate template) {
         this.template = template;
     }
 
-    @Autowired
-    UserService userService;
+    @PostConstruct
+    private void constructed() {
+        if(userService.getUser("Guest") == null)
+            userService.addUser("Guest", "abc123", "Empty");
+    }
 
     @MessageMapping("/login")
     @SendToUser("/queue/reply")
