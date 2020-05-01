@@ -5,6 +5,7 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.criteria.CriteriaBuilder;
+import java.util.Date;
 
 @Entity // This tells Hibernate to make a table out of this class
 public class User {
@@ -19,6 +20,8 @@ public class User {
     private String password;
 
     private Integer messageCount;
+
+    private Date premiumDate;
 
     public Integer getId() {
         return id;
@@ -51,4 +54,8 @@ public class User {
     public Integer getMessageCount() { return messageCount; }
 
     public void setMessageCount(Integer messageCount) { this.messageCount = messageCount; }
+
+    public Date getPremiumDate() { return premiumDate; }
+
+    public void setPremiumDate(Date premiumDate) { this.premiumDate = premiumDate; }
 }

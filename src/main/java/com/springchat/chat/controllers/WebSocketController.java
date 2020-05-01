@@ -24,6 +24,8 @@ public class WebSocketController {
     @Autowired
     UserService userService;
 
+    SimpleDateFormat dateFormat = new SimpleDateFormat("YY:MM:dd:HH:mm");
+
     private final SimpMessagingTemplate template;
     @Autowired
     WebSocketController(SimpMessagingTemplate template) {
@@ -45,7 +47,7 @@ public class WebSocketController {
         User user = userService.getUserFromMail(mail);
         if(user == null) return "Login failed: User not found";
         if(!user.getPassword().equals(password)) return "Login failed: Incorrect password";
-        return "Logged in: " + user.getName() + "," + user.getMessageCount();
+        return "Logged in: " + user.getName() + "," + user.getMessageCount() + "," + dateFormat.format(user.getPremiumDate());
 //        if(message.startsWith("delete ")) {
 //            String username = message.substring(7);
 ////            UserRepository.remove(username);
@@ -88,10 +90,10 @@ public class WebSocketController {
         if(!encoder.canEncode(password)) return "Register failed: Password must be in english";
         if(userService.isUsernameOccupied(username)) return "Register failed: Username occupied";
         if(userService.isMailOccupied(mail)) return "Register failed: Mail occupied";
-        userService.addUser(username, password, mail);
-        this.template.convertAndSend("/global", new SimpleDateFormat("HH:mm:ss").format(new Date()) + "- Server:registerd " + username);
+        User user = userService.addUser(username, password, mail);
+        sendGlobalMessage("Server:registerd " + username);
         System.out.println("registerd " + username + " " + password + " " + mail);
-        return "Logged in: " + username + "," + 0;
+        return "Logged in: " + user.getName() + "," + user.getMessageCount() + "," + dateFormat.format(user.getPremiumDate());
     }
 
     public static boolean isValidEmail(String email)
@@ -122,13 +124,26 @@ public class WebSocketController {
         if (!newpassword.matches(".*[a-zA-Z]+.*")) return "Edit failed: Password must contain letters";
         if(!user.getName().equals(newusername)) {
             if(userService.isUsernameOccupied(newusername)) return "Edit failed: Username occupied";
-            this.template.convertAndSend("/global", new SimpleDateFormat("HH:mm:ss").format(new Date()) + "- Server:edited " + user.getName() + " to " + newusername);
+            sendGlobalMessage("Server:edited " + user.getName() + " to " + newusername);
             user.setName(newusername);
         }
         user.setPassword(newpassword);
         userService.update(user);
 
-        return "Logged in: " + newusername + "," + user.getMessageCount();
+        return "Logged in: " + newusername + "," + user.getMessageCount() + "," + dateFormat.format(user.getPremiumDate());
+    }
+
+    @MessageMapping("/premium")
+    @SendToUser("/queue/reply")
+    public String purchasePremium(String message) {
+        String[] split = message.split(",");
+        User user = userService.getUser(split[0]);
+        int months = Integer.parseInt(split[1]);
+        Date date = user.getPremiumDate();
+        user.setPremiumDate(new Date(date.getYear(), date.getMonth() + months, date.getDay()));
+        userService.update(user);
+        System.out.println("set " + user.getName() + "'s premium date to " + user.getPremiumDate());
+        return "Logged in: " + user.getName() + "," + user.getMessageCount() + "," + dateFormat.format(user.getPremiumDate());
     }
 
     @MessageMapping("/userlist")
@@ -149,7 +164,7 @@ public class WebSocketController {
         User user = userService.getUser(message.substring(0, message.indexOf(':')));
         user.setMessageCount(user.getMessageCount() + 1);
         userService.update(user);
-        this.template.convertAndSend("/global", new SimpleDateFormat("HH:mm:ss").format(new Date())+ "- " + message);
+        sendGlobalMessage(message);
     }
 
     @MessageMapping("/command")
@@ -157,7 +172,7 @@ public class WebSocketController {
         if(message.startsWith("delete ")) {
             String username = message.substring(7);
             userService.removeUser(username);
-            this.template.convertAndSend("/global", new SimpleDateFormat("HH:mm:ss").format(new Date())+ "- Server:deleted " + username);
+            sendGlobalMessage("Server:deleted " + username);
         }
         else if(message.startsWith("messages ")) {
             String[] values = message.substring(9).split(" ");
@@ -166,5 +181,9 @@ public class WebSocketController {
             userService.update(user);
             System.out.println("set " + values[0] + "'s message count to " + values[1]);
         }
+    }
+
+    void sendGlobalMessage(String message) {
+        this.template.convertAndSend("/global", dateFormat.format(new Date())+ "- " + message);
     }
 }

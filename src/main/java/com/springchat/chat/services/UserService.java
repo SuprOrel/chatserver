@@ -10,6 +10,6 @@ public interface UserService {
     boolean isMailOccupied(String mail);
     void removeUser(String username);
     void removeUser(User user);
-    void addUser(String username, String password, String mail);
+    User addUser(String username, String password, String mail);
     void update(User user);
 }

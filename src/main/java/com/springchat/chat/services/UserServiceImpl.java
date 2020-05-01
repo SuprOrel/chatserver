@@ -5,6 +5,10 @@ import com.springchat.chat.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
+
 
 @Component
 public class UserServiceImpl implements UserService {
@@ -52,13 +56,17 @@ public class UserServiceImpl implements UserService {
         repository.delete(user);
     }
     @Override
-    public void addUser(String username, String password, String mail) {
+    public User addUser(String username, String password, String mail) {
         User user = new User();
         user.setName(username);
         user.setPassword(password);
         user.setEmail(mail);
         user.setMessageCount(0);
+        Calendar cal = Calendar.getInstance();
+        cal.add(Calendar.DAY_OF_MONTH, 7);
+        user.setPremiumDate(cal.getTime());
         repository.save(user);
+        return user;
     }
 
     @Override
